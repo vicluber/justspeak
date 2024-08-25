@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <FrameLayout
+        android:id="@+id/frameLayoutTop"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHeight_default="percent"
+        app:layout_constraintHeight_percent="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_default="percent"
+        app:layout_constraintWidth_percent="1.0">
+
+        <TextView
+            android:id="@+id/transcriptionTextView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/radio_button_selected"
+            android:textAlignment="viewStart"
+            android:text="Estaríamos traduciendo esto a inglés"
+            android:textColor="@color/white"
+            app:layout_constraintBottom_toTopOf="@+id/frameLayout"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/frameLayoutBottom"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHeight_default="percent"
+        app:layout_constraintHeight_percent="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintWidth_default="percent"
+        app:layout_constraintWidth_percent="1.0">
+
+        <TextView
+            android:id="@+id/responseTextView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/radio_button_unselected"
+            android:textAlignment="viewStart"
+            android:textColor="@color/white"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/frameLayout" />
+    </FrameLayout>
+
+    <Button
+        android:id="@+id/button"
+        android:layout_width="wrap_content"
+        android:layout_height="111dp"
+        android:layout_gravity="center"
+        android:drawableTop="@drawable/microphone_svgrepo_com"
+        android:padding="20dp"
+        app:layout_constraintBottom_toBottomOf="@+id/frameLayoutBottom"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/frameLayoutTop"
+        app:layout_editor_absoluteX="154dp"
+        app:layout_editor_absoluteY="311dp"
+        tools:ignore="MissingConstraints" />
+    <LinearLayout
+        android:layout_width="130dp"
+        android:layout_height="57dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/frameLayoutTop">
+
+        <Button
+            android:id="@+id/alternativeButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="Alternative" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="130dp"
+        android:layout_height="57dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/frameLayoutTop">
+
+        <Button
+            android:id="@+id/translateButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="Translate" />
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
