@@ -11,8 +11,12 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -26,25 +30,25 @@ import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var handler: Handler
+    // Properties declared but not initialized yet
     private lateinit var mediaRecorder: MediaRecorder
-    private var isRecording = false
-    private var isCancelled = false
-    private lateinit var outputFilePath: String
-    private val REQUEST_RECORD_AUDIO_PERMISSION = 200
-    private val apiKey = ""
-    private val speechToTextClient = OpenAISpeechToText(apiKey)
-    private val chatClient = OpenAIChat(apiKey)
-    private val ttsClient = OpenAITTS(apiKey)
     private lateinit var transcriptionTextView: TextView
     private lateinit var responseTextView: TextView
     private lateinit var button: Button
     private lateinit var alternativeButton: Button
     private lateinit var translateButton: Button
-    private lateinit var scaleUp: ObjectAnimator
-    private lateinit var scaleDown: ObjectAnimator
-    private var initialX: Float = 0f
+    private lateinit var outputFilePath: String
     private lateinit var selectedLanguage: String
+
+    // Properties initialized immediately
+    private var isRecording = false
+    private var isCancelled = false
+    private val REQUEST_RECORD_AUDIO_PERMISSION = 200
+    private val apiKey = ""
+    private val speechToTextClient = OpenAISpeechToText(apiKey)
+    private val chatClient = OpenAIChat(apiKey)
+    private val ttsClient = OpenAITTS(apiKey)
+    private var initialX: Float = 0f
     private var alternateUserInput: String? = null
     private var alternateGptResponse: String? = null
     private var translationUserInput: String? = null
@@ -56,45 +60,21 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // This line must be called before accessing any view elements
+        setContentView(R.layout.activity_main)
+        checkAndRequestPermissions()
+        // Initialize UI components after setContentView
+        button = findViewById(R.id.button)
+        alternativeButton = findViewById(R.id.alternativeButton)
+        translateButton = findViewById(R.id.translateButton)
+
         selectedLanguage = intent.getStringExtra("selectedValue") ?: "Default Value"
 
         // Ahora inicializa messages
         messages = mutableListOf(
             OpenAIChat.Message("system", "You are gonna act as a ${selectedLanguage} teacher who chats with me just for me to learn. So it doesn't matter which language I use you will respond accordingly but in ${selectedLanguage}, for example, if I ask you how to say something in ${selectedLanguage} always reply in ${selectedLanguage} don't use the language I use, always ${selectedLanguage}. No matter what I say, never change the language, ALWAYS speak ${selectedLanguage} with me. If I ask you to speak another language just tell me that is for my good that you will just reply in ${selectedLanguage}.\\n I'm also not good in conversation making so if I don't ask anything you will propose easy topics of conversations.")
         )
-
-        enableEdgeToEdge()
-        setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
-        transcriptionTextView = findViewById(R.id.transcriptionTextView)
-        responseTextView = findViewById(R.id.responseTextView)
-        requestAudioPermissions()
-        handler = Handler(Looper.getMainLooper())
-        outputFilePath = getOutputFilePath()
-
-        button = findViewById(R.id.button)
-        alternativeButton = findViewById(R.id.alternativeButton)
-        translateButton = findViewById(R.id.translateButton)
-
-        // Define the animations
-        fun createScaleAnimation(property: String): ObjectAnimator {
-            return ObjectAnimator.ofFloat(button, property, 1.2f).apply {
-                duration = 500
-                repeatCount = ObjectAnimator.INFINITE
-                repeatMode = ObjectAnimator.REVERSE
-            }
-        }
-
-        scaleUp = createScaleAnimation("scaleX")
-        scaleDown = createScaleAnimation("scaleY")
-
-        Toast.makeText(this@MainActivity, "Mantén presionado para grabar y suelta para enviar.", Toast.LENGTH_LONG).show()
-        Toast.makeText(this@MainActivity, "Desliza a la derecha para cancelar.", Toast.LENGTH_LONG).show()
-
         button.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> handleButtonActionDown(event)
@@ -112,12 +92,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun checkAndRequestPermissions() {
+        val permissions = arrayOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        )
+
+        val permissionsToRequest = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, permissionsToRequest.toTypedArray(), REQUEST_RECORD_AUDIO_PERMISSION)
+        }
+    }
+
     private fun handleButtonActionDown(event: MotionEvent) {
         initialX = event.rawX
         isCancelled = false
         startRecording()
-        handler.post(runnable)
-        startButtonAnimation()
     }
 
     private fun handleButtonActionMove(event: MotionEvent) {
@@ -125,14 +119,11 @@ class MainActivity : AppCompatActivity() {
         if (deltaX > 100) {
             isCancelled = true
             stopRecording()
-            stopButtonAnimation()
             Toast.makeText(this@MainActivity, "Grabación cancelada", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun handleButtonActionUp() {
-        handler.removeCallbacks(runnable)
-        stopButtonAnimation()
         if (isCancelled) {
             cancelRecording()
         } else {
@@ -185,25 +176,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-    private fun startButtonAnimation() {
-        scaleUp.start()
-        scaleDown.start()
-    }
-
-    private fun stopButtonAnimation() {
-        scaleUp.cancel()
-        scaleDown.cancel()
-        button.scaleX = 1.0f
-        button.scaleY = 1.0f
-    }
-
-    private val runnable = object : Runnable {
-        override fun run() {
-            handler.postDelayed(this, 1000)
-        }
-    }
-
     private fun getOutputFilePath(): String {
         val downloadsDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
         if (!downloadsDir!!.exists()) {
@@ -214,18 +186,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun startRecording() {
         if (isRecording) return
+
+        outputFilePath = getOutputFilePath()
         mediaRecorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setOutputFile(outputFilePath)
             try {
+                setAudioSource(MediaRecorder.AudioSource.MIC) // or VOICE_RECOGNITION
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setOutputFile(outputFilePath)
                 prepare()
                 start()
                 isRecording = true
-            } catch (e: IOException) {
+            } catch (e: Exception) {
                 e.printStackTrace()
-                showToast("Error al iniciar la grabación")
+                showToast("Failed to start recording")
+                release()
             }
         }
     }
@@ -240,7 +215,7 @@ class MainActivity : AppCompatActivity() {
             isRecording = false
         } catch (e: RuntimeException) {
             e.printStackTrace()
-            showToast("Error al detener la grabación")
+            showToast("Error stopping recording")
         }
     }
 
@@ -262,7 +237,34 @@ class MainActivity : AppCompatActivity() {
         speechToTextClient.transcribeAudio(outputFilePath) { transcription ->
             runOnUiThread {
                 if (transcription != null) {
-                    transcriptionTextView.text = transcription
+                    // Create a new TextView to display the transcription
+                    val transcriptionTextView = TextView(this).apply {
+                        text = transcription
+                        textSize = 18f // Same as 18sp
+                        setTextColor(resources.getColor(android.R.color.black, null))
+                        background = resources.getDrawable(R.drawable.user_prompt_bubble, null)
+                        setPadding(12.dpToPx(), 12.dpToPx(), 12.dpToPx(), 12.dpToPx())
+                        setShadowLayer(4f, 2f, 2f, resources.getColor(android.R.color.darker_gray, null))
+                        elevation = 2f
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            setMargins(8.dpToPx(), 8.dpToPx(), 8.dpToPx(), 8.dpToPx())
+                            gravity = Gravity.START
+                        }
+                    }
+
+                    // Find the chatContainer and add the new TextView to it
+                    val chatContainer = findViewById<LinearLayout>(R.id.chatContainer)
+                    chatContainer.addView(transcriptionTextView)
+
+                    // Scroll to the bottom to show the new message
+                    val chatScrollView = findViewById<ScrollView>(R.id.chatScrollView)
+                    chatScrollView.post {
+                        chatScrollView.fullScroll(ScrollView.FOCUS_DOWN)
+                    }
+
                     getAnswer(transcription)
                 } else {
                     showToast("Error al transcribir el audio")
@@ -271,13 +273,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Extension function to convert dp to px
+    private fun Int.dpToPx(): Int {
+        return (this * resources.displayMetrics.density).toInt()
+    }
+
+
+
     private fun getAnswer(transcription: String) {
         messages.add(OpenAIChat.Message("user", transcription))
 
         chatClient.createChatCompletion(messages) { response ->
             runOnUiThread {
                 if (response != null) {
-                    responseTextView.text = response
+                    val responseTextView = TextView(this).apply {
+                        text = response
+                        textSize = 18f // Same as 18sp
+                        setTextColor(resources.getColor(android.R.color.black, null))
+                        background = resources.getDrawable(R.drawable.openai_response_bubble, null)
+                        setPadding(12.dpToPx(), 12.dpToPx(), 12.dpToPx(), 12.dpToPx())
+                        setShadowLayer(4f, 2f, 2f, resources.getColor(android.R.color.darker_gray, null))
+                        elevation = 2f
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            setMargins(8.dpToPx(), 8.dpToPx(), 8.dpToPx(), 8.dpToPx())
+                            gravity = Gravity.START
+                        }
+                    }
+                    // Find the chatContainer and add the new TextView to it
+                    val chatContainer = findViewById<LinearLayout>(R.id.chatContainer)
+                    chatContainer.addView(responseTextView)
+
+                    // Scroll to the bottom to show the new message
+                    val chatScrollView = findViewById<ScrollView>(R.id.chatScrollView)
+                    chatScrollView.post {
+                        chatScrollView.fullScroll(ScrollView.FOCUS_DOWN)
+                    }
                     messages.add(OpenAIChat.Message("assistant", response))
                     getSpeech(response)
                 } else {
@@ -312,11 +345,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestAudioPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO_PERMISSION)
-        }
-    }
 
     private fun showToast(message: String) {
         Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
@@ -327,9 +355,28 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission granted
+                prepareRecording()
             } else {
                 // Permission denied
-                showToast("Permiso de grabación denegado")
+                showToast("Recording permission denied")
+            }
+        }
+    }
+    private fun prepareRecording() {
+        if (isRecording) return
+
+        outputFilePath = getOutputFilePath() // Set the output file path for the recording
+
+        mediaRecorder = MediaRecorder().apply {
+            try {
+                setAudioSource(MediaRecorder.AudioSource.MIC) // Set the audio source to the microphone
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4) // Set the output format to MP4
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC) // Set the audio encoder to AAC
+                setOutputFile(outputFilePath) // Set the output file where the recording will be saved
+                prepare() // Prepare the MediaRecorder for recording
+            } catch (e: Exception) {
+                e.printStackTrace()
+                showToast("Failed to prepare recording") // Display an error message if preparation fails
             }
         }
     }

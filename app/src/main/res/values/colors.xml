@@ -7,4 +7,6 @@
     <color name="colorTertiary">#9AAEBB</color>
     <color name="colorLightGreen">#E2F5F1</color>
     <color name="colorGreen">#439084</color>
+    <color name="userPromptBubbleBackground">#9ff49f</color>
+    <color name="openaiResponseBubbleBackground">#8dcbdb</color>
 </resources>

@@ -1,0 +1,13 @@
+<!-- res/drawable/scrollview_background.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@color/openaiResponseBubbleBackground" />
+    <corners android:radius="16dp" />
+    <stroke
+        android:width="2dp"
+        android:color="@android:color/darker_gray" />
+    <padding
+        android:left="8dp"
+        android:top="8dp"
+        android:right="8dp"
+        android:bottom="8dp" />
+</shape>
