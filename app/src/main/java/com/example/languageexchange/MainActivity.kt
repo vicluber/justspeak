@@ -7,8 +7,10 @@ import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Bundle
 import android.os.Environment
+import android.util.Log
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -24,8 +26,6 @@ class MainActivity : AppCompatActivity() {
 
     // Properties declared but not initialized yet
     private lateinit var mediaRecorder: MediaRecorder
-    private lateinit var transcriptionTextView: TextView
-    private lateinit var responseTextView: TextView
     private lateinit var button: Button
     private lateinit var alternativeButton: Button
     private lateinit var translateButton: Button
@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
     private val chatClient = OpenAIChat(apiKey)
     private val ttsClient = OpenAITTS(apiKey)
     private var initialX: Float = 0f
+    private var transcriptionTextView: String? = null
     private var alternateUserInput: String? = null
     private var alternateGptResponse: String? = null
     private var translationUserInput: String? = null
@@ -127,44 +128,39 @@ class MainActivity : AppCompatActivity() {
     private fun handleAlternativeButtonActionClick() {
         val messages = listOf(
             OpenAIChat.Message("system", "If I say something in ${selectedLanguage} you will make a correction if it needs one and offer an alternative in this structure 'Correction: the correct phrase - Alternative: an alternative phrase for the same meaning' and if I say something in any other language than ${selectedLanguage} you will translate that to ${selectedLanguage} but only if I say something in other language than ${selectedLanguage}"),
-            OpenAIChat.Message("user", transcriptionTextView.text.toString())
+            OpenAIChat.Message("user", transcriptionTextView.toString())
         )
         if(alternateUserInput == null){
             chatClient.createChatCompletion(messages) { response ->
                 runOnUiThread {
                     if (response != null) {
-                        alternateUserInput = transcriptionTextView.text.toString()
-                        transcriptionTextView.text = response
+                        alternateUserInput = transcriptionTextView.toString()
                         alternateGptResponse = response
                     } else {
                         showToast("Error al obtener respuesta")
                     }
                 }
             }
-        }else{
-            transcriptionTextView.text = if (transcriptionTextView.text == alternateUserInput) alternateGptResponse else alternateUserInput
         }
     }
 
     private fun handleTranslateButtonActionClick() {
         val messages = listOf(
             OpenAIChat.Message("system", "You are gonna translate to ${selectedLanguage} what I say in this structure 'the translated phrase' so nothing more than the translation"),
-            OpenAIChat.Message("user", transcriptionTextView.text.toString())
+            OpenAIChat.Message("user", transcriptionTextView.toString())
         )
         if(translationUserInput == null){
             chatClient.createChatCompletion(messages) { response ->
                 runOnUiThread {
                     if (response != null) {
-                        translationUserInput = transcriptionTextView.text.toString()
-                        transcriptionTextView.text = response
+                        translationUserInput = transcriptionTextView.toString()
+                        transcriptionTextView = response
                         translationGptResponse = response
                     } else {
                         showToast("Error al obtener respuesta")
                     }
                 }
             }
-        }else{
-            transcriptionTextView.text = if (transcriptionTextView.text == translationUserInput) translationGptResponse else translationUserInput
         }
     }
 
@@ -229,8 +225,25 @@ class MainActivity : AppCompatActivity() {
         speechToTextClient.transcribeAudio(outputFilePath) { transcription ->
             runOnUiThread {
                 if (transcription != null) {
-                    // Create a new TextView to display the transcription
-                    val transcriptionTextView = TextView(this).apply {
+                    handleTranslateButtonActionClick()
+                    handleAlternativeButtonActionClick()
+                    Log.d("translate", translationUserInput.toString())
+                    Log.d("alternative", alternateUserInput.toString())
+                    transcriptionTextView = transcription
+                    // Create a new LinearLayout to hold the TextView and buttons
+                    val messageLayout = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            setMargins(8.dpToPx(), 8.dpToPx(), 8.dpToPx(), 8.dpToPx())
+                        }
+                    }
+
+                    // Create the TextView
+                    val newChatEntry = TextView(this).apply {
+                        id = View.generateViewId() // Generate and set a unique ID
                         text = transcription
                         textSize = 18f // Same as 18sp
                         setTextColor(resources.getColor(android.R.color.black, null))
@@ -239,17 +252,50 @@ class MainActivity : AppCompatActivity() {
                         setShadowLayer(4f, 2f, 2f, resources.getColor(android.R.color.darker_gray, null))
                         elevation = 2f
                         layoutParams = LinearLayout.LayoutParams(
+                            0,
                             LinearLayout.LayoutParams.WRAP_CONTENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
+                            1f
                         ).apply {
-                            setMargins(8.dpToPx(), 8.dpToPx(), 8.dpToPx(), 8.dpToPx())
                             gravity = Gravity.START
                         }
                     }
 
-                    // Find the chatContainer and add the new TextView to it
+                    // Create the Translate button
+                    val translateButton = Button(this).apply {
+                        text = "Translate"
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        setOnClickListener {
+                            val translatedText = translateText(newChatEntry.text.toString())
+                            Log.d("TranslateButton", "Text translated to: $translatedText")
+                            newChatEntry.text = translatedText
+                        }
+                    }
+
+                    // Create the Alternative Text button
+                    val alternativeTextButton = Button(this).apply {
+                        text = "Alternative"
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        setOnClickListener {
+                            val alternativeText = "Alternative Text"
+                            Log.d("AlternativeButton", "TextView set to alternative text: $alternativeText")
+                            newChatEntry.text = alternativeText
+                        }
+                    }
+
+                    // Add the TextView and buttons to the LinearLayout
+                    messageLayout.addView(newChatEntry)
+                    messageLayout.addView(translateButton)
+                    messageLayout.addView(alternativeTextButton)
+
+                    // Find the chatContainer and add the new LinearLayout to it
                     val chatContainer = findViewById<LinearLayout>(R.id.chatContainer)
-                    chatContainer.addView(transcriptionTextView)
+                    chatContainer.addView(messageLayout)
 
                     // Scroll to the bottom to show the new message
                     val chatScrollView = findViewById<ScrollView>(R.id.chatScrollView)
@@ -264,6 +310,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    // Dummy translation function for demonstration
+    private fun translateText(text: String): String {
+        // Replace with actual translation logic
+        return "Translated: $text"
+    }
+
+
 
     // Extension function to convert dp to px
     private fun Int.dpToPx(): Int {
